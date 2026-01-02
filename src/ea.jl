@@ -57,7 +57,6 @@ function ea_train_tpg_mage(
     for gen in 1:generations
         @info "--- Generation $(gen)/$(generations) ---"
         current_root_ids = collect(tpg.root_teams) # Get current elite root IDs
-
         new_offspring_root_ids = TeamID[]
         for _ in 1:num_offspring_per_gen
             parent_root_id = rand(tpg.root_teams) #rand(collect(keys(tpg.teams))) # Another option is to select one ROOT
@@ -70,6 +69,11 @@ function ea_train_tpg_mage(
         end
         @info "Created $(length(new_offspring_root_ids)) new offspring root teams."
 
+        # if we do a report here it won't be consistent because
+        # a program might have been added (mutated) for a new team
+        # then changed (it's action) so changed ID => first is now orphan
+
+
         # We now have way more root teams
         all_eval_root_ids = collect(tpg.root_teams)
 
@@ -80,31 +84,24 @@ function ea_train_tpg_mage(
         fitness_matrix = Matrix{fitness_type}(undef, length(all_eval_root_ids), length(sample_inputs_batch))
 
         # which programs does not have cache ?
-        ps_without_cache = programs_without_cache(cache, tpg) # prints how many programs don't have a cache
-        if warmup && length(ps_without_cache) > nthreads()
+        # ps_without_cache = programs_without_cache(cache, tpg) # prints how many programs don't have a cache
+        all_programs = keys(tpg.programs) # warmup all programs as they might be eventually called
+        if warmup
+            @info "Warming up $(length(all_programs)) programs"
             @assert cache.mode == LRUCacheMode "Only LRU is thread safe for warmup"
-            programs = [find_program_by_id(tpg, pid) for pid in ps_without_cache]
-            n_progs = length(programs)
-            programs_per_thread = ceil(Int, n_progs / nthreads())
-            tasks = []
-            for partition in Iterators.partition(1:n_progs, programs_per_thread)
-                indices_for_thread = collect(partition)
-                t = Threads.@spawn begin
-                    @info "BEGIN In thread $(threadid()) evaluating progs idx $partition"
-                    for prog_idx in indices_for_thread
-                        tpg_program = programs[prog_idx]
-                        for (x, y) in sample_inputs_batch
-                            evaluate(tpg_program, x, cache, si, ml, ma)
-                        end
+            programs = [(pid, find_program_by_id(tpg, pid)) for pid in all_programs]
+            Threads.@threads :greedy for (pid, tpg_program) in programs
+                create_key_in_cache_or_nothing!(cache, pid)
+                subcache = cache.program_caches[pid]
+                for (x, y) in sample_inputs_batch
+                    if get(subcache, hash(x), nothing) |> isnothing
+                        evaluate(tpg_program, x, cache, si, ml, ma)
                     end
-                    @info "DONE In thread $(threadid()) evaluating progs idx $partition"
                 end
-                push!(tasks, t)
             end
-            @info "Fetching loading tasks"
-            fetch.(tasks)
         end
 
+        @info "Evaluating All roots"
         for (i, root_id) in enumerate(all_eval_root_ids)
             individual_fitnesses = fitness_type[]
             # individual_outs = Int[]
@@ -161,7 +158,7 @@ function ea_train_tpg_mage(
 
         if !report.is_consistent
             @warn "TPG is inconsistent after GC. This should not happen. Terminating EA."
-            break
+            throw(error("Report is not consistent"))
         end
 
         # 6. Callbacks: Optional epoch_callback
@@ -180,7 +177,7 @@ function ea_train_tpg_mage(
         end
 
         if !isnothing(early_stop_callback)
-            to_break = early_stop_callback()
+            to_break = early_stop_callback[1]()
             if to_break
                 break
             end

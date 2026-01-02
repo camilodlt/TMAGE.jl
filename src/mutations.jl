@@ -11,22 +11,30 @@ mutable struct TPGMutationConfig
     program_mutation_rate::Float64 # Probability of mutating a node within an underlying UTCGP program
     add_program_to_team_rate::Float64 # Probability of adding a new program to a team
     remove_program_from_team_rate::Float64 # Probability of removing a program from a team
-    mutate_action_map_rate::Float64 # Probability of changing an action map entry
     mutate_program_action_rate::Float64 # New: Probability of changing a program's assigned action
 
+    # Granular action map mutation rates
+    add_action_map_rate::Float64    # Probability of adding an action map entry to a program in a team
+    change_action_map_rate::Float64 # Probability of changing an existing action map entry for a program in a team
+    remove_action_map_rate::Float64 # Probability of removing an action map entry for a program in a team
+
     function TPGMutationConfig(
-            program_mutation_rate::Float64 = 0.1,
+            program_node_mutation_rate::Float64 = 0.1,
             add_program_to_team_rate::Float64 = 0.1,
             remove_program_from_team_rate::Float64 = 0.1,
-            mutate_action_map_rate::Float64 = 0.1,
-            mutate_program_action_rate::Float64 = 0.1
+            mutate_program_action_rate::Float64 = 0.1,
+            add_action_map_rate::Float64 = 0.1,
+            change_action_map_rate::Float64 = 0.1,
+            remove_action_map_rate::Float64 = 0.1
         )
         return new(
-            program_mutation_rate,
+            program_node_mutation_rate,
             add_program_to_team_rate,
             remove_program_from_team_rate,
-            mutate_action_map_rate,
             mutate_program_action_rate,
+            add_action_map_rate,
+            change_action_map_rate,
+            remove_action_map_rate
         )
     end
 end
@@ -35,6 +43,10 @@ end
 # --- Mutation Strategies ---
 
 abstract type AbstractMutationStrategy end
+abstract type AbstractMapMutation end
+struct AddActionMap <: AbstractMapMutation end
+struct ChangeActionMap <: AbstractMapMutation end
+struct RemoveActionMap <: AbstractMapMutation end
 
 """
     TPGMutationStrategy
@@ -280,6 +292,8 @@ function _mutate_single_offspring!(tpg::TangledProgramGraph, parent_root_id::Tea
     # since we mutate the new_root.programs in place
     # we iterate over a fixed list
     # else the for loop has bad behavior
+    # We loop multiple times over since the operations change the programs in the team.
+    # Example : So an old program might not be there for an map change since it was replaced by mutation.
     programs_in_new_root_before_mutations = map(x -> x.id, new_root.programs)
     for program_id in programs_in_new_root_before_mutations
         if rand() < config.program_mutation_rate # mutate directly a program
@@ -289,6 +303,10 @@ function _mutate_single_offspring!(tpg::TangledProgramGraph, parent_root_id::Tea
             # Replace in team: remove old, add new
             _replace_program_in_team!(tpg, new_root.id, program_id, new_prog.id)
         end
+    end
+
+    programs_in_new_root_before_mutations = map(x -> x.id, new_root.programs)
+    for program_id in programs_in_new_root_before_mutations
         if rand() < config.mutate_program_action_rate # program unchanged but the action associated changes
             new_prog = copy_program(tpg, program_id)
             copy_cache!(cache, program_id, new_prog.id) # the new program is the same but has a diff action, we can recover all the cache from the last
@@ -297,9 +315,31 @@ function _mutate_single_offspring!(tpg::TangledProgramGraph, parent_root_id::Tea
         end
     end
 
-    if rand() < config.mutate_action_map_rate # change the mapping for the new_root
-        unsafe_mutate_action_map!(tpg, new_root.id)
+    programs_in_new_root_before_mutations = map(x -> x.id, new_root.programs)
+    for program_id in programs_in_new_root_before_mutations
+        # Action Map Mutations (per program in the team)
+        if rand() < config.add_action_map_rate
+            unsafe_mutate_action_map!(tpg, new_root.id, program_id, AddActionMap)
+        end
     end
+
+    programs_in_new_root_before_mutations = map(x -> x.id, new_root.programs)
+    for program_id in programs_in_new_root_before_mutations
+        if rand() < config.change_action_map_rate
+            unsafe_mutate_action_map!(tpg, new_root.id, program_id, ChangeActionMap)
+        end
+    end
+
+    programs_in_new_root_before_mutations = map(x -> x.id, new_root.programs)
+    for program_id in programs_in_new_root_before_mutations
+        if rand() < config.remove_action_map_rate
+            unsafe_mutate_action_map!(tpg, new_root.id, program_id, RemoveActionMap)
+        end
+    end
+
+    # if rand() < config.mutate_action_map_rate # change the mapping for the new_root
+    #     unsafe_mutate_action_map!(tpg, new_root.id)
+    # end
     return new_root.id
 end
 
@@ -449,49 +489,120 @@ function _replace_program_in_team!(tpg::TangledProgramGraph, team_id::TeamID, ol
     return new_prog.id
 end
 
-"""
-    mutate_action_map!(tpg::TangledProgramGraph, team_id::TeamID)
 
-Modifies the action map of a specified team, either by adding a new mapping,
-changing an existing one, or removing one.
+# ADD CHANGE REMOVE ACTION MAP
+
 """
-function unsafe_mutate_action_map!(tpg::TangledProgramGraph, team_id::TeamID)
+    unsafe_mutate_action_map!(tpg::TangledProgramGraph, team_id::TeamID, program_id::ProgramID, ::AddActionMap)
+
+Adds a random action map entry for `program_id` in `team_id` if one doesn't already exist.
+"""
+function unsafe_mutate_action_map!(tpg::TangledProgramGraph, team_id::TeamID, program_id::ProgramID, ::Type{AddActionMap})
     team = find_team_by_id(tpg, team_id)
-    possible_actions = ["add", "change", "remove"]
-    action = rand(possible_actions)
+    if haskey(team.action_map, program_id)
+        # @debug "Program $(program_id) already has an action map entry in team $(team_id). No add effect."
+        return false # Already has an entry, no effect for Add
+    end
 
-    if action == "add" && !isempty(tpg.teams) && length(team.action_map) < length(team.programs) # Can only add if space available
-        program_ids_without_action = [p.id for p in team.programs if !haskey(team.action_map, p.id)]
-        if isempty(program_ids_without_action)
-            @debug "No programs available to add to action map for team $(team_id)."
-            return false
-        end
-        program_id_to_map = rand(program_ids_without_action)
-        next_team_id = rand(filter(t -> t != team.id, collect(keys(tpg.teams)))) # Connect to a random existing team but not itself
+    program_id_to_map = program_id
+    possible_teams = filter(t -> t != team.id, collect(keys(tpg.teams)))
+    if length(possible_teams) >= 1
+        next_team_id = rand(possible_teams) # Connect to a random existing team but not itself
         update_team_action!(tpg, team_id, program_id_to_map, next_team_id)
         @debug "Action map: Added mapping for program $(program_id_to_map) to team $(next_team_id) in team $(team_id)."
         return true
-    elseif action == "change" && !isempty(team.action_map) && !isempty(tpg.teams)
-        program_id_to_change = rand(collect(keys(team.action_map)))
-        old_next_team_id = team.action_map[program_id_to_change]
-        possible_next_teams = filter(id -> id != old_next_team_id && id != team_id, collect(keys(tpg.teams))) # avoid making a loop
-        new_next_team_id = rand(possible_next_teams)
-        if isempty(possible_next_teams)
-            @debug "No alternative teams to change action map to for team $(team_id)."
-            return false
-        end
-        update_team_action!(tpg, team_id, program_id_to_change, new_next_team_id)
-        @debug "Action map: Changed mapping for program $(program_id_to_change) from $(old_next_team_id) to $(new_next_team_id) in team $(team_id)."
-        return true
-    elseif action == "remove" && !isempty(team.action_map)
-        program_id_to_remove = rand(collect(keys(team.action_map)))
-        update_team_action!(tpg, team_id, program_id_to_remove, nothing)
-        @debug "Action map: Removed mapping for program $(program_id_to_remove) in team $(team_id)."
-        return true
+    else
+        return false
     end
-    @debug "Action map mutation did nothing for team $(team_id)."
-    return false
 end
+
+"""
+    unsafe_mutate_action_map!(tpg::TangledProgramGraph, team_id::TeamID, program_id::ProgramID, ::ChangeActionMap)
+
+Changes an existing action map entry for `program_id` in `team_id` to a new random team. If no entry exists, it adds one.
+"""
+function unsafe_mutate_action_map!(tpg::TangledProgramGraph, team_id::TeamID, program_id::ProgramID, ::Type{ChangeActionMap})
+    team = find_team_by_id(tpg, team_id)
+
+    all_other_team_ids = collect(keys(tpg.teams))
+    filter!(tid -> tid != team_id, all_other_team_ids) # Cannot point to itself for new connection
+
+    current_dest_id = get(team.action_map, program_id, nothing)
+
+    if !isempty(all_other_team_ids)
+        # Pick a different destination than current if possible, otherwise any.
+        possible_destinations = current_dest_id !== nothing ? filter(tid -> tid != current_dest_id, all_other_team_ids) : all_other_team_ids
+        if !isempty(possible_destinations)
+            new_dest_id = rand(possible_destinations)
+            update_team_action!(tpg, team_id, program_id, new_dest_id)
+            return true
+        end
+    end
+    return false
+
+    return
+end
+
+
+"""
+    unsafe_mutate_action_map!(tpg::TangledProgramGraph, team_id::TeamID, program_id::ProgramID, ::RemoveActionMap)
+
+Removes the action map entry for `program_id` in `team_id` if one exists.
+"""
+function unsafe_mutate_action_map!(tpg::TangledProgramGraph, team_id::TeamID, program_id::ProgramID, ::Type{RemoveActionMap})
+    team = find_team_by_id(tpg, team_id)
+    if !haskey(team.action_map, program_id)
+        # @debug "Program $(program_id) has no action map entry in team $(team_id). No remove effect."
+        return false # No entry to remove
+    end
+    update_team_action!(tpg, team_id, program_id, nothing) # Set to nothing to remove
+    return
+end
+
+
+# """
+#     unsafe_mutate_action_map!(tpg::TangledProgramGraph, team_id::TeamID)
+
+# Modifies the action map of a specified team, either by adding a new mapping,
+# changing an existing one, or removing one.
+# """
+# function unsafe_mutate_action_map!(tpg::TangledProgramGraph, team_id::TeamID)
+#     team = find_team_by_id(tpg, team_id)
+#     possible_actions = ["add", "change", "remove"]
+#     action = rand(possible_actions)
+
+#     if action == "add" && !isempty(tpg.teams) && length(team.action_map) < length(team.programs) # Can only add if space available
+#         program_ids_without_action = [p.id for p in team.programs if !haskey(team.action_map, p.id)]
+#         if isempty(program_ids_without_action)
+#             @debug "No programs available to add to action map for team $(team_id)."
+#             return false
+#         end
+#         program_id_to_map = rand(program_ids_without_action)
+#         next_team_id = rand(filter(t -> t != team.id, collect(keys(tpg.teams)))) # Connect to a random existing team but not itself
+#         update_team_action!(tpg, team_id, program_id_to_map, next_team_id)
+#         @debug "Action map: Added mapping for program $(program_id_to_map) to team $(next_team_id) in team $(team_id)."
+#         return true
+#     elseif action == "change" && !isempty(team.action_map) && !isempty(tpg.teams)
+#         program_id_to_change = rand(collect(keys(team.action_map)))
+#         old_next_team_id = team.action_map[program_id_to_change]
+#         possible_next_teams = filter(id -> id != old_next_team_id && id != team_id, collect(keys(tpg.teams))) # avoid making a loop
+#         new_next_team_id = rand(possible_next_teams)
+#         if isempty(possible_next_teams)
+#             @debug "No alternative teams to change action map to for team $(team_id)."
+#             return false
+#         end
+#         update_team_action!(tpg, team_id, program_id_to_change, new_next_team_id)
+#         @debug "Action map: Changed mapping for program $(program_id_to_change) from $(old_next_team_id) to $(new_next_team_id) in team $(team_id)."
+#         return true
+#     elseif action == "remove" && !isempty(team.action_map)
+#         program_id_to_remove = rand(collect(keys(team.action_map)))
+#         update_team_action!(tpg, team_id, program_id_to_remove, nothing)
+#         @debug "Action map: Removed mapping for program $(program_id_to_remove) in team $(team_id)."
+#         return true
+#     end
+#     @debug "Action map mutation did nothing for team $(team_id)."
+#     return false
+# end
 
 """
     mutate_program_action!(tpg::TangledProgramGraph, program_id::ProgramID)

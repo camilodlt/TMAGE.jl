@@ -28,6 +28,7 @@ function evaluate(tpg_program::TPGProgram, input::Any, cache::TPGEvaluationCache
     if cached_value !== nothing
         return cached_value
     else
+        # @info "No cached value"
         if tpg_program.program === nothing
             tpg_program.program = UTCGP.decode_with_output_nodes(tpg_program.genome, meta_library, model_architecture, shared_inputs).programs[1]
         end
