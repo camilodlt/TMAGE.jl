@@ -98,6 +98,6 @@ function programs_without_cache(cache::TPGEvaluationCache, tpg::TangledProgramGr
     ps_in_tpg = collect(keys(tpg.programs))
     ps_in_cache = collect(keys(cache.program_caches))
     ps_without_cache = setdiff(ps_in_tpg, ps_in_cache)
-    print("Programs without cache : $(length(ps_without_cache))")
+    println("Programs without cache : $(length(ps_without_cache))")
     return ps_without_cache
 end

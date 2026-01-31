@@ -5,6 +5,7 @@ using DataStructures
 using StatsBase
 using LRUCache
 using GraphViz
+using TimerOutputs
 
 import UTCGP:
     AbstractProgram,
@@ -62,6 +63,9 @@ export TangledProgramGraph,
     verify_tpg_integrity!,
     TPG_Integrity_Report
 
+
+const to = TimerOutput()
+disable_timer!(to)
 
 # TODO ADD CONDITION THAT A TEAM CAN'T HAVE MULTIPLE TIMES THE SAME PROGRAM
 

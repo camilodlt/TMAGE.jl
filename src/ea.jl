@@ -41,7 +41,6 @@ function ea_train_tpg_mage(
     end
 
     BatchSize = X.batch_size
-    TrainSize = length(X)
 
     tpg = TangledProgramGraph(initial_actions)
     M_gen_loss_tracker = UTCGP.GenerationLossTracker()
@@ -79,26 +78,40 @@ function ea_train_tpg_mage(
 
         # 3. Evaluate all root nodes
         # sample_inputs_batch, _ = zip(X.xs, X.ys) #sample(X, TrainSize) # sample a mini batch
-        sample_inputs_batch, _ = sample(X, TrainSize) # sample a mini batch
+        sample_inputs_batch, _ = sample(X, BatchSize) # sample a mini batch
         @info "Evaluating $(length(all_eval_root_ids)) individuals on $(length(sample_inputs_batch)) samples..."
         fitness_matrix = Matrix{fitness_type}(undef, length(all_eval_root_ids), length(sample_inputs_batch))
 
         # which programs does not have cache ?
-        # ps_without_cache = programs_without_cache(cache, tpg) # prints how many programs don't have a cache
+        ps_without_cache = programs_without_cache(cache, tpg) # prints how many programs don't have a cache
         all_programs = keys(tpg.programs) # warmup all programs as they might be eventually called
         if warmup
             @info "Warming up $(length(all_programs)) programs"
             @assert cache.mode == LRUCacheMode "Only LRU is thread safe for warmup"
             programs = [(pid, find_program_by_id(tpg, pid)) for pid in all_programs]
-            Threads.@threads :greedy for (pid, tpg_program) in programs
+            # Threads.@threads :greedy for (pid, tpg_program) in programs
+            #     create_key_in_cache_or_nothing!(cache, pid)
+            #     subcache = cache.program_caches[pid]
+            #     for (x, y) in sample_inputs_batch
+            #         if get(subcache, hash(x), nothing) |> isnothing
+            #             evaluate(tpg_program, x, cache, si, ml, ma, "warmup")
+            #         end
+            #     end
+            # end
+            for (pid, tpg_program) in programs
                 create_key_in_cache_or_nothing!(cache, pid)
                 subcache = cache.program_caches[pid]
-                for (x, y) in sample_inputs_batch
-                    if get(subcache, hash(x), nothing) |> isnothing
-                        evaluate(tpg_program, x, cache, si, ml, ma)
+                program_for_threads = [deepcopy(tpg_program) for i in 1:Threads.nthreads()]
+                Threads.@threads :static for  (x, y, hashed_x) in sample_inputs_batch
+                    id = Threads.threadid()
+                    thread_prog = program_for_threads[id]
+                    if get(subcache, hashed_x, nothing) |> isnothing
+                        evaluate(thread_prog, x, hashed_x, cache, si, ml, ma)
                     end
                 end
             end
+            @info "Done Warming up the programs"
+
         end
 
         @info "Evaluating All roots"
@@ -112,6 +125,8 @@ function ea_train_tpg_mage(
             end
             fitness_matrix[i, :] = individual_fitnesses
         end
+        @info "Done Evaluating All roots"
+
         Metrics_per_individual = endpoint_to_float(fitness_matrix, fitness_calculator)
         ind_performances = map(x -> x[:loss], Metrics_per_individual)
         ind_baccs = map(x -> x[:bacc], Metrics_per_individual)
