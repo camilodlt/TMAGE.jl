@@ -18,6 +18,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 ThreadSafeDicts = "4239201d-c60e-5e0a-9702-85d713665ba7"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 UTCGP = "956831e1-0a7a-492a-ae16-058c6128a9f2"
+UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
 
 [compat]
 DataStructures = ">=0.18.22"
@@ -33,3 +34,4 @@ StatsBase = ">=0.33.21"
 Test = ">=1.11.0"
 ThreadSafeDicts = ">=0.1.6"
 TimerOutputs = "0.5.29"
+UnicodePlots = "3.6.0"

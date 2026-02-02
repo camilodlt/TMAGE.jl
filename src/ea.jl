@@ -2,6 +2,7 @@ using Random
 using Statistics
 using StatsBase
 using Base.Threads
+using UnicodePlots
 
 ##############################################################
 # EVOLUTIONARY ALGORITHM FOR TPGs                            #
@@ -27,7 +28,8 @@ function ea_train_tpg_mage(
         early_stop_callback::UTCGP.Optional_FN,
         warmup::Bool = true,
         cache::Union{Nothing, TPGEvaluationCache} = nothing,
-        k::Int = 5 # how many to run on val ?
+        k::Int = 5, # how many to run on val ?
+        timepenalty::Float64 = 100
     ) where {A}
 
     if num_initial_teams <= 0
@@ -115,6 +117,8 @@ function ea_train_tpg_mage(
         end
 
         @info "Evaluating All roots"
+        penalties = zeros(Float64, length(all_eval_root_ids))
+        penalties_cost = 0.0
         for (i, root_id) in enumerate(all_eval_root_ids)
             individual_fitnesses = fitness_type[]
             # individual_outs = Int[]
@@ -124,8 +128,12 @@ function ea_train_tpg_mage(
                 push!(individual_fitnesses, f)
             end
             fitness_matrix[i, :] = individual_fitnesses
+            # Penalty for each
+            t = @elapsed reachable_teams, reachable_programs, _ = _traverse_tpg_from_roots(tpg, root_id)
+            penalties[i] = length(reachable_programs)
+            penalties_cost += t
         end
-        @info "Done Evaluating All roots"
+        @info "Done Evaluating All roots. Cost of calculating penalties : $penalties_cost seconds"
 
         Metrics_per_individual = endpoint_to_float(fitness_matrix, fitness_calculator)
         ind_performances = map(x -> x[:loss], Metrics_per_individual)
@@ -133,6 +141,9 @@ function ea_train_tpg_mage(
 
         # Calculate mean fitness for each individual across samples
         mean_fitnesses = vec(mean(ind_performances, dims = 2))
+        λ = log.(penalties) ./ timepenalty # add penalties
+        mean_fitnesses += λ
+        println(histogram(λ, title = "Penalties"))
 
         # Find best individual in this generation
         best_fitness_gen, best_idx_gen = findmin(mean_fitnesses)
@@ -150,7 +161,7 @@ function ea_train_tpg_mage(
         elite_root_ids_next_gen = Set(all_eval_root_ids[elite_indices])
         non_elite_root_ids = setdiff(Set(all_eval_root_ids), elite_root_ids_next_gen)
 
-        # 10 best roots
+        # K best roots
         ten_best_indices = sorted_indices[1:k]
         ten_elite_roots_ids = Set(all_eval_root_ids[ten_best_indices])
 
