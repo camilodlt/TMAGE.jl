@@ -61,7 +61,8 @@ export TangledProgramGraph,
     NoCache, PerInputCache, LRUCacheMode,
     plot_tpg,
     verify_tpg_integrity!,
-    TPG_Integrity_Report
+    TPG_Integrity_Report,
+    warmup_programs!
 
 
 const to = TimerOutput()
@@ -235,6 +236,7 @@ include("gc.jl") # remove a team recursively
 include("mutations.jl") # mutate teams and programs, "copy on write"
 include("evaluation.jl") # eval from root
 include("checks.jl")
+include("population.jl") # warmup with the population engine
 include("ea.jl")
 
 # include("plot.jl") # TODO

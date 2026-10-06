@@ -29,7 +29,8 @@ function ea_train_tpg_mage(
         warmup::Bool = true,
         cache::Union{Nothing, TPGEvaluationCache} = nothing,
         k::Int = 5, # how many to run on val ?
-        timepenalty::Float64 = 100
+        timepenalty::Float64 = 100,
+        engine::Symbol = :individual # :individual or :population (warmup evaluator)
     ) where {A}
 
     if num_initial_teams <= 0
@@ -90,28 +91,8 @@ function ea_train_tpg_mage(
         if warmup
             @info "Warming up $(length(all_programs)) programs"
             @assert cache.mode == LRUCacheMode "Only LRU is thread safe for warmup"
-            programs = [(pid, find_program_by_id(tpg, pid)) for pid in all_programs]
-            # Threads.@threads :greedy for (pid, tpg_program) in programs
-            #     create_key_in_cache_or_nothing!(cache, pid)
-            #     subcache = cache.program_caches[pid]
-            #     for (x, y) in sample_inputs_batch
-            #         if get(subcache, hash(x), nothing) |> isnothing
-            #             evaluate(tpg_program, x, cache, si, ml, ma, "warmup")
-            #         end
-            #     end
-            # end
-            for (pid, tpg_program) in programs
-                create_key_in_cache_or_nothing!(cache, pid)
-                subcache = cache.program_caches[pid]
-                program_for_threads = [deepcopy(tpg_program) for i in 1:Threads.nthreads()]
-                Threads.@threads :static for  (x, y, hashed_x) in sample_inputs_batch
-                    id = Threads.threadid()
-                    thread_prog = program_for_threads[id]
-                    if get(subcache, hashed_x, nothing) |> isnothing
-                        evaluate(thread_prog, x, hashed_x, cache, si, ml, ma)
-                    end
-                end
-            end
+            warmup_time = @elapsed warmup_programs!(engine, cache, tpg, all_programs, sample_inputs_batch, si, ml, ma)
+            @info "Warmup ($engine) took $warmup_time seconds"
             @info "Done Warming up the programs"
 
         end
@@ -122,8 +103,8 @@ function ea_train_tpg_mage(
         for (i, root_id) in enumerate(all_eval_root_ids)
             individual_fitnesses = fitness_type[]
             # individual_outs = Int[]
-            for (sample_input, sample_gt) in sample_inputs_batch
-                output, _ = evaluate(tpg, root_id, sample_input, si, ml, ma; cache = cache)
+            for (sample_input, sample_gt, hashed_input) in sample_inputs_batch
+                output, _ = evaluate(tpg, root_id, sample_input, hashed_input, si, ml, ma; cache = cache)
                 f = fitness_calculator(output, sample_gt)
                 push!(individual_fitnesses, f)
             end
