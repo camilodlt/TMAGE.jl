@@ -129,9 +129,9 @@ end
         prog2, _, _ = sample_program2(ml, ma)
         prog3, _, _ = sample_program3(ml, ma)
         nc = nodeConfig(10, 1, 3, 3)
-        tpg_program1 = TMAGE._add_program!(tpg, prog1)
-        tpg_program2 = TMAGE._add_program!(tpg, prog2)
-        tpg_program3 = TMAGE._add_program!(tpg, prog3)
+        tpg_program1 = TMAGE.add_program!(tpg, prog1)
+        tpg_program2 = TMAGE.add_program!(tpg, prog2)
+        tpg_program3 = TMAGE.add_program!(tpg, prog3)
 
         @test tpg_program1.id == 1
         @test tpg_program1.program === nothing
@@ -147,11 +147,11 @@ end
 
         # ADD TEAMS
         # # add team 1
-        team1 = TMAGE._add_team!(tpg, [tpg_program1.id, tpg_program2.id], Dict{Int, Int}())
+        team1 = TMAGE.add_team!(tpg, [tpg_program1.id, tpg_program2.id], Dict{Int, Int}())
 
         # # add team 2
         action_map1 = Dict(1 => 1) # if p1 wins => go to team 1. if p2 wins => no next
-        team2 = TMAGE._add_team!(tpg, [tpg_program1.id, tpg_program2.id], action_map1)
+        team2 = TMAGE.add_team!(tpg, [tpg_program1.id, tpg_program2.id], action_map1)
         @test team2.out_edges |> length == 1
         @test team2.action_map == action_map1
         @test team2.in_edges |> length == 0
@@ -160,7 +160,7 @@ end
 
         # # add team 3
         action_map2 = Dict{Int, Int}() # no pointers, "leaf" team
-        team3 = TMAGE._add_team!(tpg, [tpg_program3.id], action_map2)
+        team3 = TMAGE.add_team!(tpg, [tpg_program3.id], action_map2)
         @test team3.out_edges |> length == 0
         @test team3.action_map |> isempty
 
@@ -186,21 +186,21 @@ end
         prog2, _, _ = sample_program2(ml, ma)
         prog3, _, _ = sample_program3(ml, ma)
         nc = nodeConfig(10, 1, 3, 3)
-        tpg_program1 = TMAGE._add_program!(tpg, prog1)
-        tpg_program2 = TMAGE._add_program!(tpg, prog2)
-        tpg_program3 = TMAGE._add_program!(tpg, prog3)
+        tpg_program1 = TMAGE.add_program!(tpg, prog1)
+        tpg_program2 = TMAGE.add_program!(tpg, prog2)
+        tpg_program3 = TMAGE.add_program!(tpg, prog3)
 
         # ADD TEAMS
         # # add team 1
-        team1 = TMAGE._add_team!(tpg, [tpg_program1.id, tpg_program2.id], Dict{Int, Int}())
+        team1 = TMAGE.add_team!(tpg, [tpg_program1.id, tpg_program2.id], Dict{Int, Int}())
 
         # # add team 2
         action_map1 = Dict(1 => 1) # if p1 wins => go to team 1. if p2 wins => no next
-        team2 = TMAGE._add_team!(tpg, [tpg_program1.id, tpg_program2.id], action_map1)
+        team2 = TMAGE.add_team!(tpg, [tpg_program1.id, tpg_program2.id], action_map1)
 
         # # add team 3
         action_map2 = Dict{Int, Int}() # no pointers, "leaf" team
-        team3 = TMAGE._add_team!(tpg, [tpg_program3.id], action_map2)
+        team3 = TMAGE.add_team!(tpg, [tpg_program3.id], action_map2)
 
         TMAGE.set_root_team!(tpg, team2.id)
         @test tpg.root_teams == Set([team2.id])

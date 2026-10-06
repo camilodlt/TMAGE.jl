@@ -519,7 +519,8 @@ end
 """
     unsafe_mutate_action_map!(tpg::TangledProgramGraph, team_id::TeamID, program_id::ProgramID, ::ChangeActionMap)
 
-Changes an existing action map entry for `program_id` in `team_id` to a new random team. If no entry exists, it adds one.
+Changes an existing action map entry for `program_id` in `team_id` to a new random team.
+Does nothing when the program has no entry (adding one is `AddActionMap`'s job).
 """
 function unsafe_mutate_action_map!(tpg::TangledProgramGraph, team_id::TeamID, program_id::ProgramID, ::Type{ChangeActionMap})
     team = find_team_by_id(tpg, team_id)
@@ -528,10 +529,11 @@ function unsafe_mutate_action_map!(tpg::TangledProgramGraph, team_id::TeamID, pr
     filter!(tid -> tid != team_id, all_other_team_ids) # Cannot point to itself for new connection
 
     current_dest_id = get(team.action_map, program_id, nothing)
+    current_dest_id === nothing && return false
 
     if !isempty(all_other_team_ids)
-        # Pick a different destination than current if possible, otherwise any.
-        possible_destinations = current_dest_id !== nothing ? filter(tid -> tid != current_dest_id, all_other_team_ids) : all_other_team_ids
+        # Pick a different destination than the current one
+        possible_destinations = filter(tid -> tid != current_dest_id, all_other_team_ids)
         if !isempty(possible_destinations)
             new_dest_id = rand(possible_destinations)
             update_team_action!(tpg, team_id, program_id, new_dest_id)

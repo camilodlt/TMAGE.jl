@@ -8,6 +8,16 @@ using UnicodePlots
 # EVOLUTIONARY ALGORITHM FOR TPGs                            #
 ##############################################################
 
+"""
+Parent root by tournament: `tour_size` distinct elites drawn at random, the
+lowest last fitness wins. Uniform when `tour_size <= 1` or before any scoring.
+"""
+function _tournament_parent(root_ids::Vector{TeamID}, fitness::Dict{TeamID, Float64}, tour_size::Int)
+    (tour_size <= 1 || isempty(fitness)) && return rand(root_ids)
+    contestants = sample(root_ids, min(tour_size, length(root_ids)); replace = false)
+    return argmin(r -> get(fitness, r, Inf), contestants)
+end
+
 function ea_train_tpg_mage(
         X::Any,
         num_initial_teams::Int,
@@ -30,7 +40,8 @@ function ea_train_tpg_mage(
         cache::Union{Nothing, TPGEvaluationCache} = nothing,
         k::Int = 5, # how many to run on val ?
         timepenalty::Float64 = 100,
-        engine::Symbol = :individual # :individual or :population (warmup evaluator)
+        engine::Symbol = :individual, # :individual or :population (warmup evaluator)
+        tour_size::Int = 1 # parent tournament among the elites; 1 = uniform
     ) where {A}
 
     if num_initial_teams <= 0
@@ -56,12 +67,13 @@ function ea_train_tpg_mage(
     end
     @info "Initial TPG has $(length(tpg.teams)) teams and $(length(tpg.programs)) programs."
 
+    elite_fitness = Dict{TeamID, Float64}() # last fitness of each elite root, for tournaments
     for gen in 1:generations
         @info "--- Generation $(gen)/$(generations) ---"
         current_root_ids = collect(tpg.root_teams) # Get current elite root IDs
         new_offspring_root_ids = TeamID[]
         for _ in 1:num_offspring_per_gen
-            parent_root_id = rand(tpg.root_teams) #rand(collect(keys(tpg.teams))) # Another option is to select one ROOT
+            parent_root_id = _tournament_parent(current_root_ids, elite_fitness, tour_size)
             latest_team_id = _mutate_single_offspring!(tpg, parent_root_id, TPGMutationStrategy(), tpg_mutation_config, ma, ml, nc, si, cache)
             if haskey(tpg.teams, latest_team_id) && in(latest_team_id, tpg.root_teams) && !(latest_team_id in new_offspring_root_ids)
                 push!(new_offspring_root_ids, latest_team_id)
@@ -141,6 +153,7 @@ function ea_train_tpg_mage(
         elite_indices = sorted_indices[1:num_to_keep]
         elite_root_ids_next_gen = Set(all_eval_root_ids[elite_indices])
         non_elite_root_ids = setdiff(Set(all_eval_root_ids), elite_root_ids_next_gen)
+        elite_fitness = Dict(all_eval_root_ids[i] => mean_fitnesses[i] for i in elite_indices)
 
         # K best roots
         ten_best_indices = sorted_indices[1:k]

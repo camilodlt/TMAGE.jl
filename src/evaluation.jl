@@ -129,9 +129,9 @@ function evaluate(
 end
 
 """
-    evaluate(tpg::TangledProgramGraph, root_team_id::TeamID, input::Any, shared_inputs::SharedInput, meta_library::MetaLibrary, model_architecture::modelArchitecture; cache_mode::CacheMode = PerInputCache, lru_max_size::Int = 1000)
+    evaluate(tpg::TangledProgramGraph, root_team_id::TeamID, input::Any, shared_inputs::SharedInput, meta_library::MetaLibrary, model_architecture::modelArchitecture; cache::TPGEvaluationCache)
 Evaluates a TangledProgramGraph starting from a given root team, using the provided shared inputs.
-This function simulates the execution path through the TPG, utilizing caching based on `cache_mode`.
+This function simulates the execution path through the TPG, reading and filling `cache`.
 Includes loop detection. If a loop is detected, the current winning program's action (if any) or its output is returned.
 """
 
@@ -221,11 +221,24 @@ function evaluate(
 end
 
 
-function evaluate(tpg::TangledProgramGraph, root_team_id::Int, input::Any, hashed_input::UInt64, shared_inputs::SharedInput, meta_library::MetaLibrary, model_architecture::modelArchitecture; cache_mode::CacheMode = PerInputCache, lru_max_size::Int = 1000)
-    return evaluate(tpg, TeamID(root_team_id), input, hashed_input, shared_inputs, meta_library, model_architecture, cache_mode = cache_mode, lru_max_size = lru_max_size)
+"""
+Int root id: pass `cache`, or a fresh cache is built from `cache_mode` and `lru_max_size`.
+"""
+function evaluate(
+        tpg::TangledProgramGraph, root_team_id::Int, input::Any, hashed_input::UInt64, shared_inputs::SharedInput, meta_library::MetaLibrary, model_architecture::modelArchitecture;
+        cache::Union{Nothing, TPGEvaluationCache} = nothing, cache_mode::CacheMode = PerInputCache, lru_max_size::Int = 1000
+    )
+    cache = isnothing(cache) ? init_cache(cache_mode; lru_max_size = lru_max_size) : cache
+    return evaluate(tpg, TeamID(root_team_id), input, hashed_input, shared_inputs, meta_library, model_architecture; cache = cache)
 end
 
-function evaluate(tpg::TangledProgramGraph, root_team_id::Int, input::Any, shared_inputs::SharedInput, meta_library::MetaLibrary, model_architecture::modelArchitecture; cache_mode::CacheMode = PerInputCache, lru_max_size::Int = 1000)
+function evaluate(
+        tpg::TangledProgramGraph, root_team_id::Int, input::Any, shared_inputs::SharedInput, meta_library::MetaLibrary, model_architecture::modelArchitecture;
+        cache::Union{Nothing, TPGEvaluationCache} = nothing, cache_mode::CacheMode = PerInputCache, lru_max_size::Int = 1000
+    )
     @timeit_debug  to "Hash Input" tmp = hash(input)
-    return evaluate(tpg, TeamID(root_team_id), input, tmp, shared_inputs, meta_library, model_architecture, cache_mode = cache_mode, lru_max_size = lru_max_size)
+    return evaluate(
+        tpg, root_team_id, input, tmp, shared_inputs, meta_library, model_architecture;
+        cache = cache, cache_mode = cache_mode, lru_max_size = lru_max_size
+    )
 end

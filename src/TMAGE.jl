@@ -4,7 +4,6 @@ using UTCGP
 using DataStructures
 using StatsBase
 using LRUCache
-using GraphViz
 using TimerOutputs
 
 import UTCGP:
@@ -60,6 +59,8 @@ export TangledProgramGraph,
     CacheMode,
     NoCache, PerInputCache, LRUCacheMode,
     plot_tpg,
+    tpg_to_dot,
+    describe_program,
     verify_tpg_integrity!,
     TPG_Integrity_Report,
     warmup_programs!
@@ -239,5 +240,5 @@ include("checks.jl")
 include("population.jl") # warmup with the population engine
 include("ea.jl")
 
-# include("plot.jl") # TODO
+include("plot.jl") # graphviz DOT export
 end # module TMAGE
