@@ -7,7 +7,7 @@
 """
     evaluate(program::TPGProgram, input::Any, cache::TPGEvaluationCache, shared_inputs::SharedInput, meta_library::MetaLibrary, model_architecture::modelArchitecture)
 Evaluates a single TPGProgram, leveraging the global cache and shared inputs.
-The underlying UTCGP.Program is decoded lazily on first evaluation.
+The underlying MAGE.Program is decoded lazily on first evaluation.
 """
 
 function evaluate(
@@ -19,10 +19,10 @@ function evaluate(
     @timeit_debug to "Eval Prog : cache disabled" begin
         if !is_cache_enabled(cache) || cache.mode == NoCache
             if tpg_program.program === nothing
-                tpg_program.program = UTCGP.decode_with_output_nodes(tpg_program.genome, meta_library, model_architecture, shared_inputs).programs[1]
+                tpg_program.program = MAGE.decode_with_output_nodes(tpg_program.genome, meta_library, model_architecture, shared_inputs).programs[1]
             end
-            UTCGP.replace_shared_inputs!(tpg_program.program.program_inputs, input)
-            result = UTCGP.evaluate_program(tpg_program.program, model_architecture.chromosomes_types, meta_library)
+            MAGE.replace_shared_inputs!(tpg_program.program.program_inputs, input)
+            result = MAGE.evaluate_program(tpg_program.program, model_architecture.chromosomes_types, meta_library)
             reset_program!(tpg_program)
             return result
         end
@@ -45,10 +45,10 @@ function evaluate(
         # @info "No cached value"
         @timeit_debug to "Eval Prog : No cache" begin
             if tpg_program.program === nothing
-                tpg_program.program = UTCGP.decode_with_output_nodes(tpg_program.genome, meta_library, model_architecture, shared_inputs).programs[1]
+                tpg_program.program = MAGE.decode_with_output_nodes(tpg_program.genome, meta_library, model_architecture, shared_inputs).programs[1]
             end
-            UTCGP.replace_shared_inputs!(tpg_program.program.program_inputs, input)
-            result = UTCGP.evaluate_program(tpg_program.program, model_architecture.chromosomes_types, meta_library)
+            MAGE.replace_shared_inputs!(tpg_program.program.program_inputs, input)
+            result = MAGE.evaluate_program(tpg_program.program, model_architecture.chromosomes_types, meta_library)
             set_cached_value!(cache, tpg_program.id, input_hash, result)
             reset_program!(tpg_program)
             return result

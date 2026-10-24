@@ -9,7 +9,7 @@ Fill `cache` with the bid of every program in `program_ids` on every sample.
 `samples` iterates `(x, y, hashed_x)` tuples.
 
 Programs that already hold a value for every sample are skipped. The remaining
-ones are compiled and merged into one `UTCGP.PopulationSequentialProgram`, so
+ones are compiled and merged into one `MAGE.PopulationSequentialProgram`, so
 computation shared between programs runs once per sample; samples are
 evaluated in parallel by the threads.
 
@@ -32,18 +32,18 @@ function warmup_programs_population!(
     isempty(todo) && return 0
 
     @timeit_debug to "Population warmup : compile" begin
-        sequential_programs = UTCGP.SequentialProgram[]
+        sequential_programs = MAGE.SequentialProgram[]
         for pid in todo
             genome = tpg.programs[pid].genome
-            program = UTCGP.decode_with_output_nodes(genome, ml, ma, si).programs[1]
-            push!(sequential_programs, UTCGP.compile_program(program, ma, ml; safe = true))
+            program = MAGE.decode_with_output_nodes(genome, ml, ma, si).programs[1]
+            push!(sequential_programs, MAGE.compile_program(program, ma, ml; safe = true))
         end
-        population_program = UTCGP.PopulationSequentialProgram(sequential_programs)
+        population_program = MAGE.PopulationSequentialProgram(sequential_programs)
     end
 
     sample_inputs = Tuple[Tuple(s[1]) for s in samples]
     @timeit_debug to "Population warmup : eval" outputs =
-        UTCGP.evaluate_population_sequential_program_on_samples(population_program, sample_inputs)
+        MAGE.evaluate_population_sequential_program_on_samples(population_program, sample_inputs)
 
     for (j, h) in enumerate(hashes), (i, pid) in enumerate(todo)
         set_cached_value!(cache, pid, h, outputs[j][i][1]) # one output per program

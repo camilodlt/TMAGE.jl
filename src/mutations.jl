@@ -8,7 +8,7 @@
 Configuration for various mutation probabilities in a Tangled Program Graph.
 """
 mutable struct TPGMutationConfig
-    program_mutation_rate::Float64 # Probability of mutating a node within an underlying UTCGP program
+    program_mutation_rate::Float64 # Probability of mutating a node within an underlying MAGE program
     add_program_to_team_rate::Float64 # Probability of adding a new program to a team
     remove_program_from_team_rate::Float64 # Probability of removing a program from a team
     mutate_program_action_rate::Float64 # New: Probability of changing a program's assigned action
@@ -87,8 +87,8 @@ function unsafe_mutate_program_in_tpg!(tpg::TangledProgramGraph, tpg_program_id:
     end
 
     # Mutate the underlying genome
-    UTCGP.numbered_mutation!(tpg_program.genome, UTCGP.NumberedMutationArgs(1), model_architecture, meta_library, shared_inputs)
-    UTCGP.reset_genome!(tpg_program.genome)
+    MAGE.numbered_mutation!(tpg_program.genome, MAGE.NumberedMutationArgs(1), model_architecture, meta_library, shared_inputs)
+    MAGE.reset_genome!(tpg_program.genome)
 
     # Invalidate the decoded program, so it's re-decoded on next evaluation
     tpg_program.program = nothing
@@ -113,10 +113,10 @@ function add_random_program_to_team!(tpg::TangledProgramGraph, team_id::TeamID, 
     team = tpg.teams[team_id]
 
     # Create a new random genome
-    _, new_genome = UTCGP.make_evolvable_utgenome(model_architecture, meta_library, node_config)
-    UTCGP.initialize_genome!(new_genome)
-    UTCGP.correct_all_nodes!(new_genome, model_architecture, meta_library, shared_inputs)
-    UTCGP.fix_all_output_nodes!(new_genome)
+    _, new_genome = MAGE.make_evolvable_utgenome(model_architecture, meta_library, node_config)
+    MAGE.initialize_genome!(new_genome)
+    MAGE.correct_all_nodes!(new_genome, model_architecture, meta_library, shared_inputs)
+    MAGE.fix_all_output_nodes!(new_genome)
 
     # Add the new program to the TPG and the team
     new_tpg_program = add_program!(tpg, new_genome)
@@ -169,10 +169,10 @@ function add_random_team_to_tpg!(
     num_initial_programs = rand(1:up_to_n_new_progs) # 1 to 3 programs per new team
 
     for _ in 1:num_initial_programs
-        _, new_genome = UTCGP.make_evolvable_utgenome(model_architecture, meta_library, node_config)
-        UTCGP.initialize_genome!(new_genome)
-        UTCGP.correct_all_nodes!(new_genome, model_architecture, meta_library, shared_inputs)
-        UTCGP.fix_all_output_nodes!(new_genome)
+        _, new_genome = MAGE.make_evolvable_utgenome(model_architecture, meta_library, node_config)
+        MAGE.initialize_genome!(new_genome)
+        MAGE.correct_all_nodes!(new_genome, model_architecture, meta_library, shared_inputs)
+        MAGE.fix_all_output_nodes!(new_genome)
         new_tpg_program = add_program!(tpg, new_genome) # assigns action if applicable
         push!(new_program_ids, new_tpg_program.id)
     end

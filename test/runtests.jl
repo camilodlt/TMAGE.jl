@@ -1,7 +1,7 @@
 using Revise
 using TMAGE
 using Test
-using UTCGP
+using MAGE
 using LRUCache
 using GraphViz
 using Random
@@ -385,7 +385,7 @@ end
         @test retrieved_original_team !== nothing
         @test Set([p.id for p in retrieved_original_team.programs]) == original_team_programs_ids
         @test retrieved_original_team.action_map == original_team_action_map
-        @test UTCGP.general_hasher_sha(p1.genome) == UTCGP.general_hasher_sha(original_program_genome) # P1 for original team unchanged
+        @test MAGE.general_hasher_sha(p1.genome) == MAGE.general_hasher_sha(original_program_genome) # P1 for original team unchanged
 
         # Check the newly created (mutated) team
         new_team_id = setdiff(keys(tpg.teams), Set([original_team_id, TeamID(2)])) |> first
@@ -405,7 +405,7 @@ end
         @test mutated_program_id.val > original_tpg_programs_count # New program ID should be higher
 
         # The mutated program's genome should be different from the original program's genome
-        @test UTCGP.general_hasher_sha(mutated_program.genome) != UTCGP.general_hasher_sha(original_program_genome)
+        @test MAGE.general_hasher_sha(mutated_program.genome) != MAGE.general_hasher_sha(original_program_genome)
 
         # --- Evaluation after mutation ---
         original_team_output_after_mutation, orig_path = evaluate(tpg, original_team_id, input_data, si, ml, ma; cache_mode = PerInputCache)
@@ -462,7 +462,7 @@ end
         @test retrieved_original_team !== nothing
         @test Set([p.id for p in retrieved_original_team.programs]) == original_team_programs_ids
         @test retrieved_original_team.action_map == original_team_action_map
-        @test UTCGP.general_hasher_sha(p1.genome) == UTCGP.general_hasher_sha(original_program_genome) # P1 for original team unchanged
+        @test MAGE.general_hasher_sha(p1.genome) == MAGE.general_hasher_sha(original_program_genome) # P1 for original team unchanged
         @test length(team.programs) == 1
 
         # Check the newly created (mutated) team

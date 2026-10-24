@@ -34,8 +34,8 @@ function ea_train_tpg_mage(
         fitness_type,
         metric_of_interest,
         endpoint_to_float,
-        epoch_callbacks::UTCGP.Optional_FN,
-        early_stop_callback::UTCGP.Optional_FN,
+        epoch_callbacks::MAGE.Optional_FN,
+        early_stop_callback::MAGE.Optional_FN,
         warmup::Bool = true,
         cache::Union{Nothing, TPGEvaluationCache} = nothing,
         k::Int = 5, # how many to run on val ?
@@ -57,7 +57,7 @@ function ea_train_tpg_mage(
     BatchSize = X.batch_size
 
     tpg = TangledProgramGraph(initial_actions)
-    M_gen_loss_tracker = UTCGP.GenerationLossTracker()
+    M_gen_loss_tracker = MAGE.GenerationLossTracker()
 
     @info "Initializing TPG with $(num_initial_teams) root teams..."
     # 1. Initialization: Create initial root teams
@@ -142,7 +142,7 @@ function ea_train_tpg_mage(
         best_fitness_gen, best_idx_gen = findmin(mean_fitnesses)
         best_bacc = ind_baccs[best_idx_gen]
         best_root_id_gen = all_eval_root_ids[best_idx_gen]
-        UTCGP.affect_fitness_to_loss_tracker!(M_gen_loss_tracker, gen, best_fitness_gen)
+        MAGE.affect_fitness_to_loss_tracker!(M_gen_loss_tracker, gen, best_fitness_gen)
         @warn "Generation $(gen): Best Fitness = $(best_fitness_gen) (Bacc:$best_bacc) (Root $(best_root_id_gen))"
 
         # 4. Selection: Remove a percentage of lowest-fitness individuals

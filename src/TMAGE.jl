@@ -1,12 +1,12 @@
 module TMAGE
 
-using UTCGP
+using MAGE
 using DataStructures
 using StatsBase
 using LRUCache
 using TimerOutputs
 
-import UTCGP:
+import MAGE:
     AbstractProgram,
     Program,
     evaluate,
@@ -119,7 +119,7 @@ include("cache.jl") # cache, lru
 """
     add_program!(tpg::TangledProgramGraph, genome::UTGenome; action::Union{Any, Nothing} = nothing)::TPGProgram
 Adds a new `UTGenome` wrapped in a `TPGProgram` to the `TangledProgramGraph`.
-The `UTGenome` is decoded into a `UTCGP.Program` lazily upon first evaluation.
+The `UTGenome` is decoded into a `MAGE.Program` lazily upon first evaluation.
 Assigns a unique ID to the new TPGProgram.
 If `action` is provided, asserts that it exists in `tpg.actions`.
 If `action` is `nothing`, a random action from `tpg.actions` is assigned, or `nothing` if `tpg.actions` is empty.

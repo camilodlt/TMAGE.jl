@@ -8,7 +8,7 @@
 The function names the program runs, in execution order, joined by " → ".
 """
 function describe_program(tpg_program::TPGProgram, ml::MetaLibrary, ma::modelArchitecture, si::SharedInput)::String
-    program = UTCGP.decode_with_output_nodes(tpg_program.genome, ml, ma, si).programs[1]
+    program = MAGE.decode_with_output_nodes(tpg_program.genome, ml, ma, si).programs[1]
     names = String[string(op.fn.name) for op in program]
     return join(names, " → ")
 end

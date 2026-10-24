@@ -33,7 +33,7 @@ end
 
 function reset_program!(tpg_program::TPGProgram)
     if tpg_program.program !== nothing
-        UTCGP.reset_program!(tpg_program.program)
+        MAGE.reset_program!(tpg_program.program)
     end
     return tpg_program.program = nothing
 end
