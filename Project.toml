@@ -1,7 +1,7 @@
 name = "TMAGE"
 uuid = "d5373340-7f11-4df9-a85d-66f3c9444a86"
 authors = ["Camilo De La Torre"]
-version = "1.0.1"
+version = "1.0.2"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
@@ -19,15 +19,18 @@ UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
 MAGE = {url = "https://github.com/camilodlt/MAGE.jl.git", rev = "main"}
 
 [compat]
-MAGE = "1.1"
-DataStructures = ">=0.18.22"
+DataStructures = "0.18.22, 0.19.6"
+GraphViz = "0.2.1, 0.3"
 IterTools = "1.10.0"
-LRUCache = ">=1.6.2"
-Random = "1.11.0"
-Statistics = ">=1.11.1"
-StatsBase = ">=0.33.21"
-ThreadSafeDicts = ">=0.1.6"
-TimerOutputs = "0.5.29"
+LRUCache = "1.6.2"
+MAGE = "1.1"
+Random = "1"
+Revise = "3.7.5"
+Statistics = "1.11.1"
+StatsBase = "0.33.21, 0.34.13"
+Test = "1"
+ThreadSafeDicts = "0.1.6"
+TimerOutputs = "0.5.29, 1.2.2"
 UnicodePlots = "3.6.0"
 julia = "1.11"
 
